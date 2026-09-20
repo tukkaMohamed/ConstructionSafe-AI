@@ -1,274 +1,397 @@
-import streamlit as st
+import textwrap
 
+import streamlit as st
 from api_client import query_backend, check_health
 
 
-# --------------------------------------------------
-# Page configuration
-# --------------------------------------------------
+# =========================================================
+# HELPERS
+# =========================================================
+
+def render_html(html: str) -> None:
+    st.html(textwrap.dedent(html))
+
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
 
 st.set_page_config(
     page_title="ConstructionSafe AI",
     page_icon="🦺",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 
-# --------------------------------------------------
-# Custom styling
-# --------------------------------------------------
+# =========================================================
+# CUSTOM CSS — dark theme + brand accent
+# =========================================================
 
-st.markdown(
+render_html(
     """
     <style>
 
-        /* Main title */
-        .main-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.2rem;
-        }
+    /* ================= GLOBAL ================= */
 
-        /* Subtitle */
-        .subtitle {
-            color: #9ca3af;
-            font-size: 1.05rem;
-            margin-bottom: 1.5rem;
-        }
+    .stApp {
+        background: #0b0f14;
+    }
 
-        /* Source cards */
-        .source-box {
-            padding: 0.8rem 1rem;
-            border-radius: 0.6rem;
-            background-color: #262626;
-            color: #ffffff !important;
-            margin-bottom: 0.5rem;
-            border: 1px solid #444444;
-            font-size: 1rem;
-        }
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
 
-        /* YOLO detection cards */
-        .detection-box {
-            padding: 0.75rem 1rem;
-            border-radius: 0.6rem;
-            background-color: #262626;
-            color: #ffffff !important;
-            margin-bottom: 0.5rem;
-            border: 1px solid #444444;
-            font-size: 1rem;
-        }
+    .main .block-container {
+        max-width: 900px;
+        padding-top: 1.2rem;
+        padding-bottom: 6rem;
+    }
 
-        .detection-box b {
-            color: #ffffff !important;
-        }
 
-        /* Make text inside our custom boxes visible */
-        .source-box,
-        .source-box *,
-        .detection-box,
-        .detection-box * {
-            color: #ffffff !important;
-        }
+    /* ================= SIDEBAR ================= */
+
+    [data-testid="stSidebar"] {
+        background: #11161d;
+        border-right: 1px solid #252c35;
+    }
+
+    .sidebar-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #f5f5f5;
+    }
+
+    .sidebar-subtitle {
+        color: #9ca3af;
+        font-size: 0.82rem;
+        margin-top: 0.2rem;
+        line-height: 1.5;
+    }
+
+
+    /* ================= HEADER ================= */
+
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 0.3rem;
+    }
+
+    .brand-title {
+        font-size: 1.7rem;
+        font-weight: 750;
+        line-height: 1.15;
+        margin: 0;
+        color: #f5f5f5;
+    }
+
+    .brand-title span {
+        color: #ff5a5f;
+    }
+
+    .brand-subtitle {
+        color: #9ca3af;
+        font-size: 0.88rem;
+        margin: 0.15rem 0 1.2rem 0;
+    }
+
+
+    /* ================= CHAT MESSAGES ================= */
+
+    [data-testid="stChatMessage"] {
+        background: #171d24;
+        border: 1px solid #232a33;
+        border-radius: 0.9rem;
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 0.7rem;
+    }
+
+    [data-testid="stChatMessageAvatarUser"] {
+        background: #ff5257 !important;
+    }
+
+    [data-testid="stChatMessageAvatarAssistant"] {
+        background: #20252d !important;
+    }
+
+
+    /* ================= CHAT INPUT (bottom bar) ================= */
+
+    [data-testid="stChatInput"] {
+        background: #11161d;
+        border-top: 1px solid #252c35;
+    }
+
+    [data-testid="stChatInput"] textarea {
+        background-color: #20252d !important;
+        color: #f5f5f5 !important;
+        border-radius: 0.85rem !important;
+    }
+
+
+    /* ================= MISC WIDGETS ================= */
+
+    [data-testid="stFileUploader"] {
+        background: #20252d;
+        border: 1px dashed #555e69;
+        border-radius: 0.7rem;
+    }
+
+    div.stButton > button {
+        border-radius: 0.6rem;
+        font-weight: 600;
+    }
+
+    /* Sources / detections chips inside an assistant message */
+    .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+    }
+
+    .chip {
+        background: #20252d;
+        border: 1px solid #2a323d;
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+        font-size: 0.78rem;
+        color: #d1d5db;
+    }
+
+    .chip.detection {
+        border-color: #3a4552;
+    }
+
+    .chip .conf {
+        color: #9ca3af;
+        margin-left: 0.35rem;
+    }
+
+    .pending-image-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #20252d;
+        border: 1px solid #2a323d;
+        border-radius: 999px;
+        padding: 0.3rem 0.8rem 0.3rem 0.5rem;
+        font-size: 0.82rem;
+        color: #d1d5db;
+    }
 
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
-# --------------------------------------------------
-# Header
-# --------------------------------------------------
+# =========================================================
+# SESSION STATE
+# =========================================================
 
-st.markdown(
-    '<div class="main-title">🦺 ConstructionSafe AI</div>',
-    unsafe_allow_html=True,
-)
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-st.markdown(
-    '<div class="subtitle">'
-    "Multimodal Construction Safety Assistant powered by RAG, YOLO and Ollama"
-    "</div>",
-    unsafe_allow_html=True,
-)
+if "pending_image" not in st.session_state:
+    st.session_state.pending_image = None
 
 
-# --------------------------------------------------
-# Sidebar
-# --------------------------------------------------
+# =========================================================
+# SIDEBAR
+# =========================================================
 
 with st.sidebar:
-    st.header("System")
 
-    if st.button("Check Backend Health"):
+    render_html(
+        """
+        <div class="sidebar-title">🦺 ConstructionSafe AI</div>
+        <div class="sidebar-subtitle">
+            Multimodal construction safety assistant
+        </div>
+        """
+    )
+
+    st.write("")
+
+    if st.button("＋ New chat", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.pending_image = None
+        st.rerun()
+
+    st.divider()
+
+    st.markdown("**Combines**")
+    st.markdown("📚 RAG &nbsp;·&nbsp; 👁️ YOLO11n &nbsp;·&nbsp; 🤖 Llama 3.2 &nbsp;·&nbsp; ⚡ FastAPI")
+
+    st.divider()
+
+    st.markdown("**Backend**")
+
+    if st.button("Check backend", use_container_width=True):
         try:
-            health = check_health()
-
-            if health.get("status") == "healthy":
-                st.success("Backend is healthy")
-            else:
-                st.warning("Backend responded, but status is not healthy")
-
-        except Exception as e:
-            st.error(f"Backend connection failed: {e}")
-
-    st.divider()
-
-    st.markdown("### How to use")
-
-    st.markdown(
-        """
-        1. Ask a construction safety question.
-        2. Optionally upload a construction image.
-        3. Click **Analyze**.
-        4. Review the answer, sources and YOLO detections.
-        """
-    )
+            check_health()
+            st.success("Backend connected", icon="✅")
+        except Exception:
+            st.error("Backend unavailable", icon="⚠️")
 
 
-# --------------------------------------------------
-# Input section
-# --------------------------------------------------
+# =========================================================
+# HEADER
+# =========================================================
 
-st.subheader("Ask a Safety Question")
-
-question = st.text_area(
-    "Question",
-    placeholder="Example: When should workers wear hard hats?",
-    height=100,
+render_html(
+    """
+    <div class="brand-row">
+        <div style="font-size:2.4rem;">🦺</div>
+        <div>
+            <div class="brand-title">ConstructionSafe <span>AI</span></div>
+        </div>
+    </div>
+    """
 )
 
-uploaded_image = st.file_uploader(
-    "Upload a construction image (optional)",
-    type=["jpg", "jpeg", "png"],
+st.markdown(
+    '<div class="brand-subtitle">Ask a construction safety question, '
+    'optionally with a site photo attached.</div>',
+    unsafe_allow_html=True,
 )
 
 
-# --------------------------------------------------
-# Image preview
-# --------------------------------------------------
+# =========================================================
+# CHAT HISTORY
+# =========================================================
 
-if uploaded_image is not None:
-    st.subheader("Uploaded Image")
-    st.image(
-        uploaded_image,
-        caption=uploaded_image.name,
-        use_container_width=True,
+if not st.session_state.messages:
+    st.info("Start a conversation — ask a safety question or attach an image below.")
+
+for message in st.session_state.messages:
+
+    role = message["role"]
+    avatar = "🧑‍🏭" if role == "user" else "🦺"
+
+    with st.chat_message(role, avatar=avatar):
+
+        if role == "user":
+            st.markdown(message["content"])
+            if message.get("image") is not None:
+                st.image(message["image"], width=320)
+
+        else:
+            st.markdown(message["answer"])
+
+            sources = message.get("sources", [])
+            if sources:
+                chips = "".join(
+                    f'<span class="chip">📄 {s}</span>' for s in sources
+                )
+                render_html(f'<div class="chip-row">{chips}</div>')
+
+            detections = message.get("detections", [])
+            if detections:
+                chips = "".join(
+                    f'<span class="chip detection">🔎 {d.get("class_name", "Unknown")}'
+                    f'<span class="conf">{d.get("confidence", 0):.2f}</span></span>'
+                    for d in detections
+                )
+                render_html(f'<div class="chip-row">{chips}</div>')
+
+
+# =========================================================
+# PENDING IMAGE PREVIEW (shown above the input bar)
+# =========================================================
+
+if st.session_state.pending_image is not None:
+
+    preview_col, clear_col = st.columns([6, 1])
+
+    with preview_col:
+        st.image(st.session_state.pending_image, width=140)
+
+    with clear_col:
+        if st.button("✕ Remove", key="remove_pending_image"):
+            st.session_state.pending_image = None
+            st.rerun()
+
+
+# =========================================================
+# ATTACH IMAGE (popover, keeps the input bar clean)
+# =========================================================
+
+attach_col, _ = st.columns([1, 5])
+
+with attach_col:
+    with st.popover("📎 Attach image"):
+        uploaded = st.file_uploader(
+            "Upload a construction site photo",
+            type=["jpg", "jpeg", "png"],
+            label_visibility="collapsed",
+            key="image_uploader",
+        )
+        if uploaded is not None:
+            st.session_state.pending_image = uploaded
+
+
+# =========================================================
+# CHAT INPUT (bottom bar — press Enter or click send)
+# =========================================================
+
+question = st.chat_input("Ask anything about construction safety...")
+
+
+# =========================================================
+# PROCESS REQUEST
+# =========================================================
+
+if question:
+
+    image_bytes = None
+    if st.session_state.pending_image is not None:
+        image_bytes = st.session_state.pending_image.getvalue()
+
+    # ---------------- USER MESSAGE ----------------
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": question,
+            "image": image_bytes,
+        }
     )
 
+    # ---------------- API REQUEST ----------------
 
-# --------------------------------------------------
-# Analyze
-# --------------------------------------------------
+    with st.spinner("ConstructionSafe AI is analyzing..."):
 
-if st.button(
-    "🔍 Analyze",
-    type="primary",
-    use_container_width=True,
-):
-
-    if not question.strip():
-        st.warning("Please enter a question first.")
-
-    else:
-        with st.spinner(
-            "Analyzing the question and image..."
-        ):
-            try:
-                result = query_backend(
-                    question=question.strip(),
-                    image=uploaded_image,
-                )
-
-                st.session_state["result"] = result
-
-            except Exception as e:
-                st.error(
-                    f"Could not connect to the backend: {e}"
-                )
-
-
-# --------------------------------------------------
-# Results
-# --------------------------------------------------
-
-if "result" in st.session_state:
-
-    result = st.session_state["result"]
-
-    st.divider()
-
-    st.subheader("Answer")
-
-    st.markdown(
-        result.get(
-            "answer",
-            "No answer returned."
-        )
-    )
-
-    # ----------------------------------------------
-    # Sources
-    # ----------------------------------------------
-
-    sources = result.get("sources", [])
-
-    if sources:
-        st.subheader("📚 Sources")
-
-        for source in sources:
-            st.markdown(
-                f'<div class="source-box">📄 {source}</div>',
-                unsafe_allow_html=True,
+        try:
+            result = query_backend(
+                question,
+                image=st.session_state.pending_image,
             )
 
-    # ----------------------------------------------
-    # YOLO detections
-    # ----------------------------------------------
+            answer = result.get("answer", "No answer was returned.")
+            sources = result.get("sources", [])
+            detections = result.get("detections", [])
 
-    detections = result.get("detections", [])
-
-    if detections:
-
-        st.subheader("👁️ YOLO Detections")
-
-        st.caption(
-            "These are visual detections only and do not automatically "
-            "prove safety compliance or non-compliance."
-        )
-
-        for detection in detections:
-
-            class_name = detection.get(
-                "class_name",
-                "Unknown"
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "answer": answer,
+                    "sources": sources,
+                    "detections": detections,
+                }
             )
 
-            confidence = detection.get(
-                "confidence",
-                0
+        except Exception as error:
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "answer": f"⚠️ Something went wrong: {error}",
+                    "sources": [],
+                    "detections": [],
+                }
             )
 
-            bbox = detection.get(
-                "bbox",
-                []
-            )
-
-            st.markdown(
-                f"""
-                <div class="detection-box">
-                    <b>{class_name}</b>
-                    &nbsp; | &nbsp;
-                    Confidence: {confidence:.3f}
-                    &nbsp; | &nbsp;
-                    BBox: {bbox}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-    elif uploaded_image is not None:
-
-        st.info(
-            "No YOLO detections were returned for this image."
-        )
+    st.session_state.pending_image = None
+    st.rerun()
