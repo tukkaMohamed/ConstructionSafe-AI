@@ -1,0 +1,22 @@
+train: train/images
+val: val/images
+test: test/images
+nc: 11
+names:
+- Hardhat
+- Mask
+- NO-Hardhat
+- NO-Mask
+- NO-Safety Vest
+- Person
+- Safety Cone
+- Safety Vest
+- machinery
+- utility pole
+- vehicle
+roboflow:
+  workspace: object-detection-qn97p
+  project: construction-hazard-detection
+  version: 97
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/object-detection-qn97p/construction-hazard-detection/dataset/97

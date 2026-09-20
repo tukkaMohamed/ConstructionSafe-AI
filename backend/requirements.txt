@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-multipart
+ollama
+chromadb
+sentence-transformers
+ultralytics
+torch
+torchvision
+pytest
+httpx
