@@ -97,7 +97,7 @@ Construction-Hazard-Detection.v97i.yolov11/
 ├── frontend/
 │   ├── app.py
 │   ├── api_client.py
-│   ├── .env
+│   ├── .env.example
 │   └── requirements.txt
 │
 ├── notebooks/
@@ -354,6 +354,22 @@ Accepts a construction safety question and an optional image.
 }
 ```
 
+### Example Request
+
+```bash
+curl -X POST "http://localhost:8000/query" \
+  -F "question=When should workers wear hard hats?"
+
+
+For a multimodal request with an image:
+
+curl -X POST "http://localhost:8000/query" \
+  -F "question=What safety-related objects are detected in this image?" \
+  -F "image=@path/to/image.jpg"
+
+  ```
+  
+
 ---
 
 ## 🚀 Running the Backend
@@ -397,6 +413,33 @@ The frontend will be available at:
 ```text
 http://localhost:8501
 ```
+
+## 🔐 Environment Variables
+
+### Backend
+
+The backend configuration is stored in `backend/.env`.
+
+| Variable | Description | Example |
+|---|---|---|
+| `OLLAMA_MODEL` | Local Ollama model used for generation | `llama3.2` |
+| `OLLAMA_HOST` | Ollama server URL | `http://127.0.0.1:11434` |
+| `EMBEDDING_MODEL` | Sentence Transformer embedding model | `all-MiniLM-L6-v2` |
+| `TOP_K` | Number of retrieved chunks | `2` |
+| `CHROMA_PATH` | Persistent Chroma vector store path | `backend/data/vector_store` |
+| `CHROMA_COLLECTION` | Chroma collection name | `construction_safety` |
+| `YOLO_MODEL_PATH` | Path to trained YOLO model | `runs/detect/runs/construction_yolo11n/weights/best.pt` |
+| `CONFIDENCE_THRESHOLD` | YOLO detection confidence threshold | `0.30` |
+| `CORS_ORIGINS` | Allowed frontend origin | `http://localhost:8501` |
+
+### Frontend
+
+The frontend uses `frontend/.env.example` as a template.
+
+```env
+API_BASE_URL=http://localhost:8000
+
+
 
 ---
 
